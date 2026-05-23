@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎬 Video Clip Extractor — YouTube Script Tool</title>
+  <meta name="description" content="Extract and merge specific video clips for YouTube movie explanation content. Mark start/end points with frame-by-frame precision." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-icon">🎬</span>
+      <div class="brand-text">
+        <h1>Clip Extractor</h1>
+        <span class="brand-subtitle">YouTube Script Tool — Movie Explainer</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="btn-load-video" class="btn btn-primary" title="Load a video file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Load Video
+      </button>
+      <input type="file" id="file-input" accept="video/*" style="display:none" />
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════ MAIN ════════════════════════════════ -->
+  <main class="app-main">
+
+    <!-- ── LEFT: Video Area ── -->
+    <section class="video-section" id="video-section">
+
+      <!-- Drop zone (shown when no video loaded) -->
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-content">
+          <div class="drop-icon">🎞️</div>
+          <p class="drop-title">Drop your movie here</p>
+          <p class="drop-subtitle">or click <strong>Load Video</strong> above</p>
+          <p class="drop-hint">Supports MP4, MKV, AVI, MOV, and more</p>
+        </div>
+      </div>
+
+      <div class="video-wrapper" id="video-wrapper" style="display:none">
+        <video id="video-player" preload="metadata"></video>
+        <div class="video-overlay" id="video-overlay">
+          <div class="overlay-big-play" id="overlay-big-play">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Path bar (shown after video load so user can enter full path for FFmpeg) -->
+      <div class="path-bar" id="path-bar" style="display:none">
+        <svg class="path-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="path-bar-label">FFmpeg path:</span>
+        <input type="text" id="video-path-input" class="path-input"
+          placeholder="Paste full path, e.g. /home/user/movies/film.mkv" />
+        <button id="btn-path-browse" class="btn btn-ghost btn-sm" title="Browse for file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Browse
+        </button>
+      </div>
+
+      <!-- Timeline -->
+      <div class="timeline-section" id="timeline-section" style="display:none">
+        <div class="timeline-container">
+          <canvas id="timeline-canvas" class="timeline-canvas"></canvas>
+          <div class="timeline-cursor" id="timeline-cursor"></div>
+        </div>
+        <div class="timeline-labels">
+          <span id="time-current" class="time-label mono">00:00:00.000</span>
+          <span id="time-frame" class="time-label-center mono">Frame: <span id="frame-number">0</span></span>
+          <span id="time-total" class="time-label mono">00:00:00.000</span>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-bar" id="controls-bar" style="display:none">
+        <!-- Playback row -->
+        <div class="controls-row controls-playback">
+          <button id="btn-frame-back" class="btn btn-icon" title="Previous Frame (← key)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="5" width="3" height="14"/><path d="M19 5l-11 7 11 7z"/></svg>
+          </button>
+          <button id="btn-skip-back" class="btn btn-icon" title="Skip Back 5s">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" fill="currentColor">5</text></svg>
+          </button>
+          <button id="btn-play-pause" class="btn btn-icon btn-play" title="Play / Pause (Space)">
+            <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          </button>
+          <button id="btn-skip-fwd" class="btn btn-icon" title="Skip Forward 5s">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" fill="currentColor">5</text></svg>
+          </button>
+          <button id="btn-frame-fwd" class="btn btn-icon" title="Next Frame (→ key)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="17" y="5" width="3" height="14"/><path d="M5 5l11 7-11 7z"/></svg>
+          </button>
+
+          <div class="volume-control">
+            <button id="btn-mute" class="btn btn-icon btn-sm" title="Mute">
+              <svg id="icon-vol" viewBox="0 0 24 24" fill="currentColor"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              <svg id="icon-mute" viewBox="0 0 24 24" fill="currentColor" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            </button>
+            <input type="range" id="volume-slider" class="slider-sm" min="0" max="1" step="0.05" value="1" />
+          </div>
+        </div>
+
+        <!-- Marking row -->
+        <div class="controls-row controls-marking">
+          <button id="btn-mark-start" class="btn btn-mark-start" title="Mark current time as clip START (S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+            Mark Start
+          </button>
+          <div class="pending-start-info" id="pending-start-info" style="display:none">
+            <span class="pending-label">Start:</span>
+            <span id="pending-start-time" class="mono pending-time">–</span>
+            <span class="pending-arrow">→</span>
+            <span class="pending-label">Now:</span>
+            <span id="pending-elapsed-time" class="mono pending-elapsed">00:00.000</span>
+          </div>
+          <button id="btn-mark-end" class="btn btn-mark-end" title="Mark current time as clip END and save pair (E)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Mark End
+          </button>
+          <div class="spacer"></div>
+          <button id="btn-export" class="btn btn-export" title="Export and merge all marked clips">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export &amp; Merge
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── RIGHT: Clips Panel ── -->
+    <aside class="clips-panel" id="clips-panel">
+      <div class="panel-header">
+        <h2>Marked Clips</h2>
+        <span id="clips-count" class="clips-badge">0</span>
+      </div>
+
+      <div class="clips-list" id="clips-list">
+        <div class="clips-empty" id="clips-empty">
+          <div class="clips-empty-icon">✂️</div>
+          <p>No clips marked yet.</p>
+          <p class="clips-empty-hint">Play the video, pause at the desired frame, then click <strong>Mark Start</strong> and <strong>Mark End</strong>.</p>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div class="total-duration-block">
+          <div class="total-duration-label">Total clips</div>
+          <div class="total-duration-value">
+            <span id="clips-count-footer" class="mono accent">0</span>
+            <span class="total-sep">clips</span>
+            <span id="total-clip-duration" class="mono">00:00.000</span>
+          </div>
+        </div>
+        <button id="btn-clear-all" class="btn btn-ghost btn-sm">Clear All</button>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ═════════════════════════ EXPORT MODAL ══════════════════════════════ -->
+  <dialog id="export-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🎬 Export & Merge Clips</h3>
+      </div>
+      <div class="modal-body">
+        <div class="export-form">
+          <label for="output-name">Output filename</label>
+          <input type="text" id="output-name" class="input-field" placeholder="merged_output.mp4" value="merged_output.mp4" />
+        </div>
+        <div class="export-summary" id="export-summary"></div>
+
+        <div class="export-progress" id="export-progress" style="display:none">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
+          </div>
+          <p id="progress-message" class="progress-msg">Starting...</p>
+        </div>
+
+        <div class="export-result" id="export-result" style="display:none">
+          <div class="result-success">✅ Done!</div>
+          <p id="result-path" class="mono result-path"></p>
+          <button id="btn-open-folder" class="btn btn-primary">Open Folder</button>
+        </div>
+
+        <div class="export-error" id="export-error" style="display:none">
+          <div class="result-error">❌ Export failed</div>
+          <p id="error-message" class="error-msg"></p>
+        </div>
+      </div>
+      <div class="modal-footer" id="modal-footer">
+        <button id="btn-modal-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-modal-export" class="btn btn-export">Start Export</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ═════════════════════════ TOAST ═════════════════════════════════════ -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
