@@ -4,12 +4,17 @@ import uuid
 import subprocess
 import threading
 import tempfile
-from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
+
+# ── Paths ────────────────────────────────────────────────────────
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+INPUT_DIR = os.path.join(BASE_DIR, 'input-video')
+
+VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.mpg', '.mpeg'}
 
 # In-memory job tracking
 jobs = {}
@@ -18,11 +23,9 @@ jobs = {}
 def run_ffprobe(video_path):
     """Get video metadata using ffprobe."""
     cmd = [
-        'ffprobe',
-        '-v', 'quiet',
+        'ffprobe', '-v', 'quiet',
         '-print_format', 'json',
-        '-show_streams',
-        '-show_format',
+        '-show_streams', '-show_format',
         video_path
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -31,9 +34,42 @@ def run_ffprobe(video_path):
     return json.loads(result.stdout)
 
 
+# ── Static routes ────────────────────────────────────────────────
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
+
+
+@app.route('/video/<path:filename>')
+def serve_video(filename):
+    """Serve video file from input-video folder for browser playback."""
+    return send_from_directory(INPUT_DIR, filename)
+
+
+# ── API ──────────────────────────────────────────────────────────
+
+@app.route('/api/scan', methods=['GET'])
+def scan_videos():
+    """Scan the input-video folder and return video files with metadata."""
+    os.makedirs(INPUT_DIR, exist_ok=True)
+    videos = []
+    try:
+        for fname in sorted(os.listdir(INPUT_DIR)):
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in VIDEO_EXTENSIONS:
+                full_path = os.path.join(INPUT_DIR, fname)
+                size = os.path.getsize(full_path)
+                videos.append({
+                    'name': fname,
+                    'path': full_path,
+                    'size_mb': round(size / 1024 / 1024, 1),
+                    'url': f'/video/{fname}'
+                })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'videos': videos, 'input_dir': INPUT_DIR})
 
 
 @app.route('/api/probe', methods=['POST'])
@@ -42,13 +78,7 @@ def probe_video():
     data = request.get_json()
     video_path = data.get('path', '').strip()
 
-    if not video_path:
-        return jsonify({'error': 'No path provided'}), 400
-
-    # Expand ~ and env vars
-    video_path = os.path.expanduser(os.path.expandvars(video_path))
-
-    if not os.path.isfile(video_path):
+    if not video_path or not os.path.isfile(video_path):
         return jsonify({'error': f'File not found: {video_path}'}), 404
 
     try:
@@ -57,16 +87,14 @@ def probe_video():
         return jsonify({'error': str(e)}), 500
 
     # Find video stream
-    video_stream = None
-    for stream in probe.get('streams', []):
-        if stream.get('codec_type') == 'video':
-            video_stream = stream
-            break
-
+    video_stream = next(
+        (s for s in probe.get('streams', []) if s.get('codec_type') == 'video'),
+        None
+    )
     if not video_stream:
         return jsonify({'error': 'No video stream found'}), 400
 
-    # Parse FPS (can be expressed as "24000/1001" or "30/1")
+    # Parse FPS fraction e.g. "24000/1001"
     fps_str = video_stream.get('r_frame_rate', '25/1')
     try:
         num, den = fps_str.split('/')
@@ -75,24 +103,21 @@ def probe_video():
         fps = 25.0
 
     duration = float(probe.get('format', {}).get('duration', 0))
-    width = int(video_stream.get('width', 0))
-    height = int(video_stream.get('height', 0))
-    codec = video_stream.get('codec_name', 'unknown')
 
     return jsonify({
-        'fps': round(fps, 4),
+        'fps':      round(fps, 4),
         'duration': duration,
-        'width': width,
-        'height': height,
-        'codec': codec,
-        'path': video_path
+        'width':    int(video_stream.get('width', 0)),
+        'height':   int(video_stream.get('height', 0)),
+        'codec':    video_stream.get('codec_name', 'unknown'),
+        'path':     video_path
     })
 
 
 def _do_export(job_id, video_path, clips, output_path):
-    """Background worker: cut clips and merge them using FFmpeg."""
+    """Background worker: cut clips (no audio) and merge with FFmpeg."""
     try:
-        jobs[job_id]['status'] = 'running'
+        jobs[job_id]['status']  = 'running'
         jobs[job_id]['progress'] = 0
         jobs[job_id]['message'] = 'Starting export...'
 
@@ -100,21 +125,20 @@ def _do_export(job_id, video_path, clips, output_path):
         clip_files = []
         temp_dir = tempfile.mkdtemp(prefix='vidclip_')
 
-        # Step 1: Extract each clip
+        # Step 1: Extract each clip (video only, no audio)
         for i, clip in enumerate(clips):
-            start = clip['start']
-            end = clip['end']
+            start     = clip['start']
+            end       = clip['end']
             clip_path = os.path.join(temp_dir, f'clip_{i:04d}.mp4')
             clip_files.append(clip_path)
 
             cmd = [
-                'ffmpeg',
-                '-y',
+                'ffmpeg', '-y',
                 '-ss', str(start),
                 '-to', str(end),
                 '-i', video_path,
                 '-c:v', 'libx264',
-                '-an',                      # no audio
+                '-an',                       # no audio
                 '-avoid_negative_ts', 'make_zero',
                 clip_path
             ]
@@ -123,66 +147,60 @@ def _do_export(job_id, video_path, clips, output_path):
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if result.returncode != 0:
                 jobs[job_id]['status'] = 'error'
-                jobs[job_id]['error'] = f'FFmpeg error on clip {i + 1}: {result.stderr[-500:]}'
+                jobs[job_id]['error']  = f'FFmpeg clip {i+1} error: {result.stderr[-600:]}'
                 return
 
             jobs[job_id]['progress'] = int((i + 1) / n * 80)
 
         # Step 2: Build concat list
-        concat_list_path = os.path.join(temp_dir, 'concat.txt')
-        with open(concat_list_path, 'w') as f:
-            for clip_path in clip_files:
-                f.write(f"file '{clip_path}'\n")
+        concat_list = os.path.join(temp_dir, 'concat.txt')
+        with open(concat_list, 'w') as f:
+            for cp in clip_files:
+                f.write(f"file '{cp}'\n")
 
-        # Step 3: Concatenate all clips
+        # Step 3: Merge
         jobs[job_id]['message'] = 'Merging clips...'
         cmd = [
-            'ffmpeg',
-            '-y',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', concat_list_path,
+            'ffmpeg', '-y',
+            '-f', 'concat', '-safe', '0',
+            '-i', concat_list,
             '-c', 'copy',
             output_path
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
             jobs[job_id]['status'] = 'error'
-            jobs[job_id]['error'] = f'FFmpeg merge error: {result.stderr[-500:]}'
+            jobs[job_id]['error']  = f'FFmpeg merge error: {result.stderr[-600:]}'
             return
 
-        jobs[job_id]['progress'] = 100
-        jobs[job_id]['status'] = 'done'
-        jobs[job_id]['message'] = 'Export complete!'
+        jobs[job_id]['progress']    = 100
+        jobs[job_id]['status']      = 'done'
+        jobs[job_id]['message']     = 'Export complete!'
         jobs[job_id]['output_path'] = output_path
 
     except Exception as e:
         jobs[job_id]['status'] = 'error'
-        jobs[job_id]['error'] = str(e)
+        jobs[job_id]['error']  = str(e)
 
 
 @app.route('/api/export', methods=['POST'])
 def export_clips():
     """Start an async export job."""
-    data = request.get_json()
-    video_path = data.get('path', '').strip()
-    clips = data.get('clips', [])
+    data        = request.get_json()
+    video_path  = data.get('path', '').strip()
+    clips       = data.get('clips', [])
     output_name = data.get('output_name', 'merged_output.mp4')
 
     if not video_path or not clips:
         return jsonify({'error': 'Missing path or clips'}), 400
 
-    video_path = os.path.expanduser(os.path.expandvars(video_path))
-
     if not os.path.isfile(video_path):
         return jsonify({'error': f'File not found: {video_path}'}), 404
 
-    # Output file next to source video
-    video_dir = os.path.dirname(video_path)
+    # Save next to source video; make unique if already exists
+    video_dir   = os.path.dirname(video_path)
     output_path = os.path.join(video_dir, output_name)
-
-    # Make output unique if already exists
-    base, ext = os.path.splitext(output_path)
+    base, ext   = os.path.splitext(output_path)
     counter = 1
     while os.path.exists(output_path):
         output_path = f"{base}_{counter}{ext}"
@@ -190,26 +208,21 @@ def export_clips():
 
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
-        'status': 'queued',
-        'progress': 0,
-        'message': 'Queued',
-        'output_path': None,
-        'error': None
+        'status': 'queued', 'progress': 0,
+        'message': 'Queued', 'output_path': None, 'error': None
     }
 
-    thread = threading.Thread(
+    threading.Thread(
         target=_do_export,
         args=(job_id, video_path, clips, output_path),
         daemon=True
-    )
-    thread.start()
+    ).start()
 
     return jsonify({'job_id': job_id})
 
 
 @app.route('/api/status/<job_id>', methods=['GET'])
 def job_status(job_id):
-    """Poll the status of an export job."""
     job = jobs.get(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
@@ -218,13 +231,11 @@ def job_status(job_id):
 
 @app.route('/api/open-folder', methods=['POST'])
 def open_folder():
-    """Open the folder containing the output file."""
     data = request.get_json()
     path = data.get('path', '')
-    if path and os.path.exists(os.path.dirname(path)):
-        folder = os.path.dirname(path)
-        # Try xdg-open on Linux, open on macOS, explorer on Windows
-        for cmd in [['xdg-open', folder], ['open', folder], ['explorer', folder]]:
+    folder = os.path.dirname(path) if path else INPUT_DIR
+    if os.path.isdir(folder):
+        for cmd in [['xdg-open', folder], ['open', folder]]:
             try:
                 subprocess.Popen(cmd)
                 return jsonify({'ok': True})
@@ -235,13 +246,13 @@ def open_folder():
 
 if __name__ == '__main__':
     import webbrowser
-    print("=" * 60)
+    os.makedirs(INPUT_DIR, exist_ok=True)
+    print("=" * 62)
     print("  🎬  Video Clip Extractor & Merger")
-    print("=" * 60)
-    print("  Server starting at: http://localhost:5000")
-    print("  Opening browser...")
-    print("  Press Ctrl+C to stop")
-    print("=" * 60)
-    # Open browser after a short delay
+    print("=" * 62)
+    print(f"  📁  Put your video in:  {INPUT_DIR}")
+    print("  🌐  Open:  http://localhost:5000")
+    print("  🛑  Stop:  Ctrl+C")
+    print("=" * 62)
     threading.Timer(1.2, lambda: webbrowser.open('http://localhost:5000')).start()
     app.run(host='0.0.0.0', port=5000, debug=False)
