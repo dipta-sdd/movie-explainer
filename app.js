@@ -89,6 +89,45 @@ const btnOpenFolder    = $('btn-open-folder');
 const editModeBanner   = $('edit-mode-banner');
 const editModeLabel    = $('edit-mode-label');
 const btnEditDone      = $('btn-edit-done');
+const lastVideoContainer = $('last-video-container');
+const btnLoadLast        = $('btn-load-last');
+const lastVideoName      = $('last-video-name');
+
+const STORAGE_KEY = 'youtube_script_clips';
+
+function saveState() {
+  if (!state.videoName) return;
+  const data = {
+    videoInfo: {
+      name: state.videoName,
+      path: state.videoPath,
+      url: video.src
+    },
+    clips: state.clips
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadStateFromStorage() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (data && data.videoInfo) {
+      lastVideoName.textContent = data.videoInfo.name;
+      lastVideoContainer.style.display = 'block';
+      
+      btnLoadLast.onclick = () => {
+        state.clips = data.clips || [];
+        const videoInfo = data.videoInfo;
+        videoInfo.keepClips = true;
+        loadVideo(videoInfo);
+      };
+    } else {
+      lastVideoContainer.style.display = 'none';
+    }
+  } catch (e) {
+    lastVideoContainer.style.display = 'none';
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  UTILITIES
@@ -226,7 +265,9 @@ async function loadVideo(videoInfo) {
   state.videoPath    = videoInfo.path;
   state.videoName    = videoInfo.name;
   state.pendingStart = null;
-  state.clips        = [];
+  if (!videoInfo.keepClips) {
+    state.clips = [];
+  }
   btnMarkEnd.disabled = true;
   pendingInfo.style.display = 'none';
   btnMarkStart.classList.remove('pulsing');
@@ -477,20 +518,33 @@ function markStart() {
     }
     state.clips[idx].start = newStart;
     renderClipsList(); drawTimeline();
+    saveState();
     showToast(`Clip #${idx+1} start → ${formatTime(newStart)}`, 'success', 2000);
     return;
   }
 
-  // ── NORMAL MODE ──
+  // ── NORMAL MODE: Auto-mark 4 seconds ──
   video.pause();
-  state.pendingStart = video.currentTime;
-  pendingTime.textContent = formatTime(state.pendingStart);
-  if (pendingElapsed) pendingElapsed.textContent = '00:00.000';
-  pendingInfo.style.display = 'flex';
-  btnMarkStart.classList.add('pulsing');
-  btnMarkEnd.disabled = false;
-  showToast(`Start: ${formatTime(state.pendingStart)}`, 'info', 2000);
+  const start = video.currentTime;
+  const dur = state.duration || video.duration || start + 4;
+  const end = Math.min(start + 4, dur);
+  
+  if (start >= end) { showToast('Cannot create clip here.', 'error'); return; }
+
+  const color = CLIP_COLORS[state.clips.length % CLIP_COLORS.length];
+  const newClip = { start, end, color };
+  
+  const idx = state.insertIndex !== null ? state.insertIndex : state.clips.length;
+  state.clips.splice(idx, 0, newClip);
+  
+  // Advance the insertion pointer so the next clip goes after this one
+  state.insertIndex = idx + 1;
+  if (state.insertIndex > state.clips.length) state.insertIndex = null;
+
+  renderClipsList();
   drawTimeline();
+  saveState();
+  showToast(`Clip auto-saved at position #${idx+1} (4s)`, 'success');
 }
 
 function markEnd() {
@@ -505,6 +559,7 @@ function markEnd() {
     }
     state.clips[idx].end = newEnd;
     renderClipsList(); drawTimeline();
+    saveState();
     showToast(`Clip #${idx+1} end → ${formatTime(newEnd)}`, 'success', 2000);
     return;
   }
@@ -639,6 +694,7 @@ function renderClipsList() {
         state.editingClipIndex--;
       }
       renderClipsList(); drawTimeline();
+      saveState();
       showToast(`Clip #${idx+1} removed`, 'info', 2000);
     });
   });
@@ -665,6 +721,7 @@ btnClearAll.addEventListener('click', () => {
   btnMarkStart.classList.remove('pulsing');
   btnMarkEnd.disabled = true;
   renderClipsList(); drawTimeline();
+  saveState();
   showToast('All clips cleared', 'info', 2000);
 });
 
@@ -823,4 +880,5 @@ btnOpenFolder.addEventListener('click', async () => {
 
 window.addEventListener('load', () => {
   resizeCanvas();
+  loadStateFromStorage();
 });
