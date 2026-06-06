@@ -23,6 +23,8 @@ const state = {
   draggingTimeline: false,
   stopAtTime:       null,  // time to auto-pause playback
   autoMarkEndTime:  null,  // time to auto-save clip in playback mode
+  previewMode:      false,
+  currentPreviewIndex: null,
 };
 
 // ── DOM ──────────────────────────────────────────────────────────
@@ -74,6 +76,13 @@ const clipsCount       = $('clips-count');
 const clipsCountFooter = $('clips-count-footer');
 const totalDuration    = $('total-clip-duration');
 const btnClearAll      = $('btn-clear-all');
+const btnExportJson    = $('btn-export-json');
+const btnImportJson    = $('btn-import-json');
+const importJsonUpload = $('import-json-upload');
+const btnPreviewAll    = $('btn-preview-all');
+const audioUpload      = $('preview-audio-upload');
+const audioName        = $('preview-audio-name');
+const btnClearAudio    = $('btn-clear-audio');
 const exportModal      = $('export-modal');
 const outputNameInput  = $('output-name');
 const exportSummary    = $('export-summary');
@@ -392,8 +401,25 @@ video.addEventListener('ended', () => {
   iconPause.style.display = 'none';
 });
 
+let previewAudio = null;
+let videoWasMutedBeforePreview = false;
+
+function cancelPreview() {
+  if (state.previewMode) {
+    state.previewMode = false;
+    state.currentPreviewIndex = null;
+    if (previewAudio) {
+      previewAudio.pause();
+      video.muted = videoWasMutedBeforePreview;
+      iconVol.style.display  = video.muted ? 'none'  : 'block';
+      iconMute.style.display = video.muted ? 'block' : 'none';
+    }
+  }
+}
+
 function togglePlay() {
   if (!video.src) return;
+  if (!video.paused) cancelPreview();
   video.paused ? video.play() : video.pause();
 }
 
@@ -402,6 +428,7 @@ btnSkipFwd.addEventListener('click',  () => seekBy(5));
 
 function seekBy(delta) {
   if (!video.src) return;
+  cancelPreview();
   video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + delta));
 }
 
@@ -410,6 +437,7 @@ btnFrameFwd.addEventListener('click',  () => stepFrame(1));
 
 function stepFrame(dir) {
   if (!video.src) return;
+  cancelPreview();
   video.pause();
   video.currentTime = Math.max(0, Math.min(
     video.duration,
@@ -445,6 +473,20 @@ function updateLoop() {
       video.pause();
       video.currentTime = state.stopAtTime;
       state.stopAtTime = null;
+      
+      if (state.previewMode) {
+        state.currentPreviewIndex++;
+        if (state.currentPreviewIndex < state.clips.length) {
+          const nextClip = state.clips[state.currentPreviewIndex];
+          video.currentTime = nextClip.start;
+          state.stopAtTime = nextClip.end;
+          video.play();
+        } else {
+          state.previewMode = false;
+          state.currentPreviewIndex = null;
+          showToast('Preview Finished', 'success');
+        }
+      }
     }
     
     // Auto-mark when reached the duration in playback mode
@@ -571,6 +613,7 @@ document.addEventListener('mouseup',   () => { state.draggingTimeline = false; }
 function seekToX(e) {
   const rect = canvas.getBoundingClientRect();
   const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  cancelPreview();
   video.currentTime = pct * (state.duration || video.duration || 0);
 }
 
@@ -603,6 +646,7 @@ function markStart() {
   const durLimit = state.duration || video.duration || start + userSettings.autoClipDuration;
   
   if (userSettings.autoMarkMode === 'immediate') {
+    cancelPreview();
     video.pause();
     const end = Math.min(start + userSettings.autoClipDuration, durLimit);
     if (start >= end) { showToast('Cannot create clip here.', 'error'); return; }
@@ -682,6 +726,47 @@ function markEnd() {
 // ═══════════════════════════════════════════════════════════════
 //  CLIPS PANEL
 // ═══════════════════════════════════════════════════════════════
+
+btnPreviewAll.addEventListener('click', () => {
+  if (state.clips.length === 0) return;
+  state.previewMode = true;
+  state.currentPreviewIndex = 0;
+  
+  if (previewAudio) {
+    videoWasMutedBeforePreview = video.muted;
+    video.muted = true;
+    iconVol.style.display  = 'none';
+    iconMute.style.display = 'block';
+    previewAudio.currentTime = 0;
+    previewAudio.play().catch(e => console.error("Audio play failed", e));
+  }
+  
+  const firstClip = state.clips[0];
+  video.currentTime = firstClip.start;
+  state.stopAtTime = firstClip.end;
+  video.play();
+  
+  showToast('Playing Preview...', 'info');
+});
+
+audioUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (previewAudio) previewAudio.pause();
+  
+  const url = URL.createObjectURL(file);
+  previewAudio = new Audio(url);
+  audioName.textContent = file.name;
+  btnClearAudio.style.display = 'block';
+});
+
+btnClearAudio.addEventListener('click', () => {
+  if (previewAudio) previewAudio.pause();
+  previewAudio = null;
+  audioUpload.value = '';
+  audioName.textContent = 'Add BG Audio';
+  btnClearAudio.style.display = 'none';
+});
 
 function renderClipsList() {
   clipsList.querySelectorAll('.clip-item, .insert-zone').forEach(el => el.remove());
@@ -793,6 +878,7 @@ function renderClipsList() {
 
   clipsList.querySelectorAll('.clip-item').forEach(item => {
     item.addEventListener('click', () => {
+      cancelPreview();
       const idx = +item.dataset.index;
       video.currentTime = state.clips[idx].start;
       state.stopAtTime = state.clips[idx].end;
@@ -816,6 +902,44 @@ btnClearAll.addEventListener('click', () => {
   renderClipsList(); drawTimeline();
   saveState();
   showToast('All clips cleared', 'info', 2000);
+});
+
+btnExportJson.addEventListener('click', () => {
+  if (state.clips.length === 0) return showToast('No clips to export', 'error');
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.clips, null, 2));
+  const a = document.createElement('a');
+  a.setAttribute("href", dataStr);
+  a.setAttribute("download", "clips.json");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+btnImportJson.addEventListener('click', () => importJsonUpload.click());
+
+importJsonUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const clips = JSON.parse(e.target.result);
+      if (Array.isArray(clips)) {
+        state.clips = clips;
+        state.insertIndex = null;
+        renderClipsList();
+        drawTimeline();
+        saveState();
+        showToast('Clips imported successfully', 'success');
+      } else {
+        throw new Error("Invalid format");
+      }
+    } catch (err) {
+      showToast('Invalid JSON file', 'error');
+    }
+  };
+  reader.readAsText(file);
+  importJsonUpload.value = '';
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -911,14 +1035,18 @@ async function startExport() {
   progressMsg.textContent      = 'Sending to server…';
 
   try {
+    const formData = new FormData();
+    formData.append('path', state.videoPath);
+    formData.append('clips', JSON.stringify(state.clips.map(c => ({ start: c.start, end: c.end }))));
+    formData.append('output_name', outputName);
+    
+    if (audioUpload.files[0]) {
+      formData.append('audio', audioUpload.files[0]);
+    }
+
     const res  = await fetch(`${API}/export`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        path:        state.videoPath,
-        clips:       state.clips.map(c => ({ start: c.start, end: c.end })),
-        output_name: outputName
-      })
+      body:    formData
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);

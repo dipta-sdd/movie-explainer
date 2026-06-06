@@ -598,6 +598,17 @@ body {
   border-color: var(--border-light);
 }
 
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-light);
+}
+
 .btn-icon {
   background: var(--bg-elevated);
   color: var(--text-secondary);
@@ -980,8 +991,7 @@ body {
 .panel-footer {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: 10px 14px;
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);

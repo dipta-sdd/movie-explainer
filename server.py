@@ -155,7 +155,7 @@ def probe_video():
     })
 
 
-def _do_export(job_id, video_path, clips, output_path):
+def _do_export(job_id, video_path, clips, output_path, audio_path=None):
     """Background worker: cut clips (no audio) and merge with FFmpeg."""
     try:
         jobs[job_id]['status']  = 'running'
@@ -204,15 +204,34 @@ def _do_export(job_id, video_path, clips, output_path):
         cmd = [
             'ffmpeg', '-y',
             '-f', 'concat', '-safe', '0',
-            '-i', concat_list,
-            '-c', 'copy',
-            output_path
+            '-i', concat_list
         ]
+        
+        if audio_path:
+            total_dur = sum(c['end'] - c['start'] for c in clips)
+            cmd.extend([
+                '-i', audio_path,
+                '-map', '0:v',
+                '-map', '1:a',
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-t', str(total_dur)
+            ])
+        else:
+            cmd.extend(['-c', 'copy'])
+            
+        cmd.append(output_path)
+        
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
             jobs[job_id]['status'] = 'error'
             jobs[job_id]['error']  = f'FFmpeg merge error: {result.stderr[-600:]}'
+            if audio_path and os.path.exists(audio_path):
+                os.remove(audio_path)
             return
+
+        if audio_path and os.path.exists(audio_path):
+            os.remove(audio_path)
 
         jobs[job_id]['progress']    = 100
         jobs[job_id]['status']      = 'done'
@@ -227,10 +246,22 @@ def _do_export(job_id, video_path, clips, output_path):
 @app.route('/api/export', methods=['POST'])
 def export_clips():
     """Start an async export job."""
-    data        = request.get_json()
-    video_path  = data.get('path', '').strip()
-    clips       = data.get('clips', [])
-    output_name = data.get('output_name', 'merged_output.mp4')
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        video_path  = request.form.get('path', '').strip()
+        clips       = json.loads(request.form.get('clips', '[]'))
+        output_name = request.form.get('output_name', 'merged_output.mp4')
+        audio_file  = request.files.get('audio')
+        if audio_file:
+            audio_path = os.path.join(tempfile.gettempdir(), f'audio_{uuid.uuid4().hex}.mp3')
+            audio_file.save(audio_path)
+        else:
+            audio_path = None
+    else:
+        data        = request.get_json()
+        video_path  = data.get('path', '').strip()
+        clips       = data.get('clips', [])
+        output_name = data.get('output_name', 'merged_output.mp4')
+        audio_path  = None
 
     if not video_path or not clips:
         return jsonify({'error': 'Missing path or clips'}), 400
@@ -252,10 +283,9 @@ def export_clips():
         'status': 'queued', 'progress': 0,
         'message': 'Queued', 'output_path': None, 'error': None
     }
-
     threading.Thread(
         target=_do_export,
-        args=(job_id, video_path, clips, output_path),
+        args=(job_id, video_path, clips, output_path, audio_path),
         daemon=True
     ).start()
 
