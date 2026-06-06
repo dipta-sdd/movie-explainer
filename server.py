@@ -6,8 +6,10 @@ import threading
 import tempfile
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__, static_folder='.', static_url_path='')
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5 GB limit for video uploads
 CORS(app)
 
 # ── Paths ────────────────────────────────────────────────────────
@@ -70,6 +72,39 @@ def scan_videos():
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'videos': videos, 'input_dir': INPUT_DIR})
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload_video():
+    """Upload a video, clear existing videos, and save the new one."""
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video file part in request'}), 400
+    
+    file = request.files['video']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file:
+        os.makedirs(INPUT_DIR, exist_ok=True)
+        
+        # Clear existing files in input-video directory
+        for fname in os.listdir(INPUT_DIR):
+            fpath = os.path.join(INPUT_DIR, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                
+        # Save new file
+        filename = secure_filename(file.filename)
+        save_path = os.path.join(INPUT_DIR, filename)
+        file.save(save_path)
+        
+        size = os.path.getsize(save_path)
+        return jsonify({
+            'name': filename,
+            'path': save_path,
+            'size_mb': round(size / 1024 / 1024, 1),
+            'url': f'/video/{filename}'
+        })
 
 
 @app.route('/api/probe', methods=['POST'])

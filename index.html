@@ -23,9 +23,9 @@
     </div>
     <div class="header-actions">
       <div id="video-name-badge" class="video-name-badge" style="display:none"></div>
-      <button id="btn-scan" class="btn btn-primary" title="Scan input-video folder for videos">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Scan Folder
+      <button id="btn-change-video" class="btn btn-primary" title="Upload a new video file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Video
       </button>
     </div>
   </header>
@@ -36,29 +36,26 @@
     <!-- ── LEFT: Video Area ── -->
     <section class="video-section" id="video-section">
 
-      <!-- Scan / Pick state (shown when no video loaded) -->
-      <div class="scan-zone" id="scan-zone">
-        <div class="scan-zone-content" id="scan-content-idle">
-          <div class="scan-icon">📁</div>
-          <p class="scan-title">Put your movie in the <code>input-video</code> folder</p>
-          <p class="scan-path" id="scan-path-display"></p>
-          <p class="scan-hint">Then click <strong>Scan Folder</strong> to detect it automatically.</p>
-          <button id="btn-scan-big" class="btn btn-primary btn-lg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            Scan Folder
+      <!-- Upload state (shown when no video loaded) -->
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone-content" id="upload-content-idle">
+          <div class="upload-icon">⬆️</div>
+          <p class="upload-title">Select a movie to edit</p>
+          <p class="upload-hint">Upload a video directly from your computer. Note: Uploading large files may take a few seconds.</p>
+          <input type="file" id="video-file-input" accept="video/*" style="display:none" />
+          <button id="btn-browse-big" class="btn btn-primary btn-lg">
+            Browse File
           </button>
         </div>
 
-        <!-- Scanning spinner -->
-        <div class="scan-zone-content" id="scan-content-loading" style="display:none">
-          <div class="spinner"></div>
-          <p class="scan-title">Scanning…</p>
-        </div>
-
-        <!-- Multiple videos found -->
-        <div class="scan-zone-content" id="scan-content-list" style="display:none">
-          <p class="scan-title">Choose a video to edit:</p>
-          <div class="video-pick-list" id="video-pick-list"></div>
+        <!-- Upload progress -->
+        <div class="upload-zone-content" id="upload-content-progress" style="display:none">
+          <div class="upload-icon pulsing">⬆️</div>
+          <p class="upload-title" id="upload-status-text">Uploading Video...</p>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="upload-progress-fill"></div>
+          </div>
+          <p class="upload-hint" id="upload-progress-text">0%</p>
         </div>
       </div>
 
@@ -87,6 +84,15 @@
 
       <!-- Controls -->
       <div class="controls-bar" id="controls-bar" style="display:none">
+
+        <!-- Edit Mode Banner -->
+        <div id="edit-mode-banner" class="edit-mode-banner" style="display:none">
+          <div class="edit-mode-info">
+            <span class="edit-icon">✏️</span>
+            <span id="edit-mode-label">Editing Clip #1</span>
+          </div>
+          <button id="btn-edit-done" class="btn btn-primary btn-sm">Done</button>
+        </div>
 
         <!-- Playback row -->
         <div class="controls-row controls-playback">

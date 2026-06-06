@@ -17,20 +17,24 @@ const state = {
   fps:          25,
   duration:     0,
   clips:        [],
-  pendingStart: null,
+  pendingStart:     null,
+  editingClipIndex: null,  // index of clip being edited, or null
+  insertIndex:      null,  // where to insert the next clip, null = end
   draggingTimeline: false,
 };
 
 // ── DOM ──────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
-const video            = $('video-player');
-const scanZone         = $('scan-zone');
-const scanContentIdle  = $('scan-content-idle');
-const scanContentLoad  = $('scan-content-loading');
-const scanContentList  = $('scan-content-list');
-const videoPickList    = $('video-pick-list');
-const scanPathDisplay  = $('scan-path-display');
+const video              = $('video-player');
+const uploadZone         = $('upload-zone');
+const uploadContentIdle  = $('upload-content-idle');
+const uploadContentProg  = $('upload-content-progress');
+const videoFileInput     = $('video-file-input');
+const btnBrowseBig       = $('btn-browse-big');
+const uploadProgressFill = $('upload-progress-fill');
+const uploadProgressText = $('upload-progress-text');
+const uploadStatusText   = $('upload-status-text');
 const videoWrapper     = $('video-wrapper');
 const timelineSection  = $('timeline-section');
 const controlsBar      = $('controls-bar');
@@ -38,8 +42,6 @@ const canvas           = $('timeline-canvas');
 const timelineCursor   = $('timeline-cursor');
 const ctx              = canvas.getContext('2d');
 
-const btnScan          = $('btn-scan');
-const btnScanBig       = $('btn-scan-big');
 const btnChangeVideo   = $('btn-change-video');
 const videoNameBadge   = $('video-name-badge');
 const btnPlay          = $('btn-play-pause');
@@ -83,6 +85,9 @@ const modalFooter      = $('modal-footer');
 const btnModalCancel   = $('btn-modal-cancel');
 const btnModalExport   = $('btn-modal-export');
 const btnOpenFolder    = $('btn-open-folder');
+const editModeBanner   = $('edit-mode-banner');
+const editModeLabel    = $('edit-mode-label');
+const btnEditDone      = $('btn-edit-done');
 
 // ═══════════════════════════════════════════════════════════════
 //  UTILITIES
@@ -121,73 +126,65 @@ function showToast(msg, type = 'info', duration = 3000) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SCAN FOLDER
+//  UPLOAD VIDEO
 // ═══════════════════════════════════════════════════════════════
 
-async function scanFolder() {
-  // Show spinner
-  scanContentIdle.style.display = 'none';
-  scanContentList.style.display = 'none';
-  scanContentLoad.style.display = 'flex';
+btnBrowseBig.addEventListener('click', () => videoFileInput.click());
 
-  try {
-    const res  = await fetch(`${API}/scan`);
-    const data = await res.json();
+videoFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploadVideo(file);
+});
 
-    // Show the folder path in the idle screen
-    if (scanPathDisplay && data.input_dir) {
-      scanPathDisplay.textContent = data.input_dir;
+function uploadVideo(file) {
+  uploadContentIdle.style.display = 'none';
+  uploadContentProg.style.display = 'flex';
+  uploadProgressFill.style.width = '0%';
+  uploadProgressText.textContent = '0%';
+  uploadStatusText.textContent = 'Uploading Video...';
+
+  const formData = new FormData();
+  formData.append('video', file);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `${API}/upload`, true);
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = Math.round((e.loaded / e.total) * 100);
+      uploadProgressFill.style.width = `${percentComplete}%`;
+      uploadProgressText.textContent = `${percentComplete}%`;
     }
+  };
 
-    if (data.error) throw new Error(data.error);
-
-    const videos = data.videos || [];
-
-    if (videos.length === 0) {
-      // No video found — go back to idle with helpful message
-      scanContentLoad.style.display = 'none';
-      scanContentIdle.style.display = 'flex';
-      showToast('No video found in input-video folder. Add a video and scan again.', 'error', 5000);
-      return;
+  xhr.onload = async () => {
+    if (xhr.status === 200) {
+      uploadStatusText.textContent = 'Upload Complete. Loading...';
+      const data = JSON.parse(xhr.responseText);
+      await loadVideo(data);
+    } else {
+      uploadContentProg.style.display = 'none';
+      uploadContentIdle.style.display = 'flex';
+      let err = 'Upload failed';
+      try { err = JSON.parse(xhr.responseText).error || err; } catch(e){}
+      showToast(err, 'error', 5000);
     }
+    // clear input so same file can be selected again
+    videoFileInput.value = '';
+  };
 
-    if (videos.length === 1) {
-      // One video — auto-load it
-      await loadVideo(videos[0]);
-      return;
-    }
+  xhr.onerror = () => {
+    uploadContentProg.style.display = 'none';
+    uploadContentIdle.style.display = 'flex';
+    showToast('Network error during upload', 'error', 5000);
+    videoFileInput.value = '';
+  };
 
-    // Multiple — show pick list
-    scanContentLoad.style.display = 'none';
-    scanContentList.style.display = 'flex';
-    renderPickList(videos);
-
-  } catch (err) {
-    scanContentLoad.style.display = 'none';
-    scanContentIdle.style.display = 'flex';
-    showToast(`Scan error: ${err.message}`, 'error', 5000);
-  }
+  xhr.send(formData);
 }
 
-function renderPickList(videos) {
-  videoPickList.innerHTML = '';
-  videos.forEach(v => {
-    const card = document.createElement('button');
-    card.className = 'video-pick-card';
-    card.innerHTML = `
-      <span class="pick-icon">🎞️</span>
-      <span class="pick-name">${v.name}</span>
-      <span class="pick-size">${v.size_mb} MB</span>
-    `;
-    card.addEventListener('click', () => loadVideo(v));
-    videoPickList.appendChild(card);
-  });
-}
-
-btnScan.addEventListener('click', scanFolder);
-btnScanBig.addEventListener('click', scanFolder);
-
-// "Change" button — go back to scan zone
+// "Change" button — go back to upload zone and open picker
 btnChangeVideo.addEventListener('click', () => {
   video.pause();
   video.src = '';
@@ -203,12 +200,14 @@ btnChangeVideo.addEventListener('click', () => {
   timelineSection.style.display = 'none';
   controlsBar.style.display     = 'none';
   videoNameBadge.style.display  = 'none';
-  scanZone.style.display        = 'flex';
-  scanContentIdle.style.display = 'flex';
-  scanContentList.style.display = 'none';
-  scanContentLoad.style.display = 'none';
+  uploadZone.style.display        = 'flex';
+  uploadContentIdle.style.display = 'flex';
+  uploadContentProg.style.display = 'none';
 
   renderClipsList();
+  
+  // Trigger file picker
+  videoFileInput.click();
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -217,9 +216,7 @@ btnChangeVideo.addEventListener('click', () => {
 
 async function loadVideo(videoInfo) {
   // videoInfo = { name, path, url, size_mb }
-  scanContentLoad.style.display = 'flex';
-  scanContentList.style.display = 'none';
-  scanContentIdle.style.display = 'none';
+  uploadZone.style.display = 'none';
 
   state.videoPath    = videoInfo.path;
   state.videoName    = videoInfo.name;
@@ -363,8 +360,8 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   switch (e.code) {
     case 'Space':       e.preventDefault(); togglePlay(); break;
-    case 'ArrowLeft':   e.preventDefault(); e.shiftKey ? seekBy(-5) : stepFrame(-1); break;
-    case 'ArrowRight':  e.preventDefault(); e.shiftKey ? seekBy(5)  : stepFrame(1);  break;
+    case 'ArrowLeft':   e.preventDefault(); (e.shiftKey || !video.paused) ? seekBy(-5) : stepFrame(-1); break;
+    case 'ArrowRight':  e.preventDefault(); (e.shiftKey || !video.paused) ? seekBy(5)  : stepFrame(1);  break;
     case 'KeyS':        if (!e.ctrlKey && !e.metaKey) markStart(); break;
     case 'KeyE':        if (!e.ctrlKey && !e.metaKey) markEnd();   break;
   }
@@ -466,6 +463,21 @@ btnMarkEnd.addEventListener('click',   markEnd);
 
 function markStart() {
   if (!video.src) return;
+
+  // ── EDIT MODE: update existing clip's start ──
+  if (state.editingClipIndex !== null) {
+    const idx = state.editingClipIndex;
+    const newStart = video.currentTime;
+    if (newStart >= state.clips[idx].end) {
+      showToast('Start must be before End!', 'error'); return;
+    }
+    state.clips[idx].start = newStart;
+    renderClipsList(); drawTimeline();
+    showToast(`Clip #${idx+1} start → ${formatTime(newStart)}`, 'success', 2000);
+    return;
+  }
+
+  // ── NORMAL MODE ──
   video.pause();
   state.pendingStart = video.currentTime;
   pendingTime.textContent = formatTime(state.pendingStart);
@@ -478,20 +490,44 @@ function markStart() {
 }
 
 function markEnd() {
-  if (!video.src || state.pendingStart === null) return;
+  if (!video.src) return;
+
+  // ── EDIT MODE: update existing clip's end ──
+  if (state.editingClipIndex !== null) {
+    const idx = state.editingClipIndex;
+    const newEnd = video.currentTime;
+    if (newEnd <= state.clips[idx].start) {
+      showToast('End must be after Start!', 'error'); return;
+    }
+    state.clips[idx].end = newEnd;
+    renderClipsList(); drawTimeline();
+    showToast(`Clip #${idx+1} end → ${formatTime(newEnd)}`, 'success', 2000);
+    return;
+  }
+
+  // ── NORMAL MODE ──
+  if (state.pendingStart === null) return;
   video.pause();
   const end = video.currentTime;
   if (end <= state.pendingStart) { showToast('End must be after Start!', 'error'); return; }
   const color = CLIP_COLORS[state.clips.length % CLIP_COLORS.length];
   const dur   = end - state.pendingStart;
-  state.clips.push({ start: state.pendingStart, end, color });
+  
+  const newClip = { start: state.pendingStart, end, color };
+  const idx = state.insertIndex !== null ? state.insertIndex : state.clips.length;
+  state.clips.splice(idx, 0, newClip);
+  
+  // Advance the insertion pointer so the next clip goes after this one
+  state.insertIndex = idx + 1;
+  if (state.insertIndex > state.clips.length) state.insertIndex = null;
+
   state.pendingStart = null;
   pendingInfo.style.display = 'none';
   btnMarkStart.classList.remove('pulsing');
   btnMarkEnd.disabled = true;
   renderClipsList();
   drawTimeline();
-  showToast(`Clip #${state.clips.length} saved — ${formatShortDuration(dur)}`, 'success');
+  showToast(`Clip saved at position #${idx+1} — ${formatShortDuration(dur)}`, 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -499,9 +535,10 @@ function markEnd() {
 // ═══════════════════════════════════════════════════════════════
 
 function renderClipsList() {
-  clipsList.querySelectorAll('.clip-item').forEach(el => el.remove());
+  clipsList.querySelectorAll('.clip-item, .insert-zone').forEach(el => el.remove());
 
   if (state.clips.length === 0) {
+    state.insertIndex = null;
     clipsEmpty.style.display   = 'flex';
     clipsCount.textContent     = '0';
     if (clipsCountFooter) clipsCountFooter.textContent = '0';
@@ -516,11 +553,31 @@ function renderClipsList() {
   btnExport.disabled       = false;
 
   let total = 0;
+  
+  // Helper to render an insertion zone
+  const renderInsertZone = (idx) => {
+    const isEnd = idx === state.clips.length;
+    const isActive = (state.insertIndex === idx) || (state.insertIndex === null && isEnd);
+    const zone = document.createElement('div');
+    zone.className = 'insert-zone' + (isActive ? ' active' : '');
+    zone.dataset.idx = idx;
+    zone.title = "Insert new clip here";
+    zone.innerHTML = `<div class="insert-line"></div>`;
+    zone.addEventListener('click', () => {
+      state.insertIndex = isEnd ? null : idx;
+      renderClipsList();
+    });
+    clipsList.appendChild(zone);
+  };
+
   state.clips.forEach((clip, i) => {
+    // Render insert zone before clip
+    renderInsertZone(i);
+
     const dur  = clip.end - clip.start;
     total     += dur;
     const item = document.createElement('div');
-    item.className       = 'clip-item';
+    item.className = 'clip-item' + (state.editingClipIndex === i ? ' editing' : '');
     item.dataset.index   = i;
     item.style.borderLeftColor = clip.color;
     item.innerHTML = `
@@ -530,6 +587,9 @@ function renderClipsList() {
         <div class="clip-actions">
           <button class="btn btn-delete btn-goto" data-index="${i}" title="Jump to clip start">
             <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button class="btn btn-edit-clip" data-index="${i}" title="Edit this clip's in/out points">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="btn btn-delete" data-action="delete" data-index="${i}" title="Delete clip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -555,11 +615,25 @@ function renderClipsList() {
     });
   });
 
+  clipsList.querySelectorAll('.btn-edit-clip').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = +btn.dataset.index;
+      if (state.editingClipIndex === idx) { exitEditMode(); return; }
+      enterEditMode(idx);
+    });
+  });
+
   clipsList.querySelectorAll('[data-action="delete"]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const idx = +btn.dataset.index;
+      if (state.editingClipIndex === idx) exitEditMode();
       state.clips.splice(idx, 1);
+      // If editing a later clip, adjust index
+      if (state.editingClipIndex !== null && state.editingClipIndex > idx) {
+        state.editingClipIndex--;
+      }
       renderClipsList(); drawTimeline();
       showToast(`Clip #${idx+1} removed`, 'info', 2000);
     });
@@ -567,21 +641,81 @@ function renderClipsList() {
 
   clipsList.querySelectorAll('.clip-item').forEach(item => {
     item.addEventListener('click', () => {
-      video.currentTime = state.clips[+item.dataset.index].start;
+      const idx = +item.dataset.index;
+      video.currentTime = state.clips[idx].start;
       video.pause();
     });
   });
+
+  // Render the final insert zone at the very end
+  renderInsertZone(state.clips.length);
 }
 
 btnClearAll.addEventListener('click', () => {
   if (!state.clips.length || !confirm('Clear all marked clips?')) return;
+  exitEditMode();
   state.clips        = [];
   state.pendingStart = null;
+  state.insertIndex  = null;
   pendingInfo.style.display = 'none';
   btnMarkStart.classList.remove('pulsing');
   btnMarkEnd.disabled = true;
   renderClipsList(); drawTimeline();
   showToast('All clips cleared', 'info', 2000);
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  EDIT MODE
+// ═══════════════════════════════════════════════════════════════
+
+const MARK_START_HTML = btnMarkStart.innerHTML;
+const MARK_END_HTML   = btnMarkEnd.innerHTML;
+
+function enterEditMode(idx) {
+  // Cancel any pending normal mark
+  state.pendingStart = null;
+  pendingInfo.style.display = 'none';
+  btnMarkStart.classList.remove('pulsing');
+
+  state.editingClipIndex = idx;
+  video.currentTime = state.clips[idx].start;
+  video.pause();
+
+  // Update banner
+  editModeBanner.style.display = 'flex';
+  editModeLabel.textContent    = `Editing Clip #${idx + 1}`;
+
+  // Change button labels
+  btnMarkStart.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg><span>Update Start</span>`;
+  btnMarkEnd.innerHTML   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>Update End</span>`;
+  btnMarkEnd.disabled = false;
+
+  renderClipsList();
+  drawTimeline();
+  showToast(`Editing Clip #${idx+1} — navigate and click Update Start / End`, 'info', 4000);
+}
+
+function exitEditMode() {
+  if (state.editingClipIndex === null) return;
+  state.editingClipIndex = null;
+  editModeBanner.style.display = 'none';
+
+  // Restore button labels
+  btnMarkStart.innerHTML = MARK_START_HTML;
+  btnMarkEnd.innerHTML   = MARK_END_HTML;
+  btnMarkEnd.disabled    = (state.pendingStart === null);
+
+  renderClipsList();
+  drawTimeline();
+}
+
+btnEditDone.addEventListener('click', exitEditMode);
+
+// Escape key exits edit mode
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (state.editingClipIndex !== null) exitEditMode();
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
