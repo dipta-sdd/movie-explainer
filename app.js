@@ -43,6 +43,7 @@ const timelineCursor   = $('timeline-cursor');
 const ctx              = canvas.getContext('2d');
 
 const btnChangeVideo   = $('btn-change-video');
+const btnUploadHeader  = $('btn-upload-header');
 const videoNameBadge   = $('video-name-badge');
 const btnPlay          = $('btn-play-pause');
 const iconPlay         = $('icon-play');
@@ -184,8 +185,7 @@ function uploadVideo(file) {
   xhr.send(formData);
 }
 
-// "Change" button — go back to upload zone and open picker
-btnChangeVideo.addEventListener('click', () => {
+function resetToUpload() {
   video.pause();
   video.src = '';
   state.videoPath    = null;
@@ -208,7 +208,12 @@ btnChangeVideo.addEventListener('click', () => {
   
   // Trigger file picker
   videoFileInput.click();
-});
+}
+
+btnChangeVideo.addEventListener('click', resetToUpload);
+if (btnUploadHeader) {
+  btnUploadHeader.addEventListener('click', resetToUpload);
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  LOAD VIDEO
@@ -248,7 +253,6 @@ async function loadVideo(videoInfo) {
   }
 
   // Show player UI
-  scanZone.style.display        = 'none';
   videoWrapper.style.display    = 'flex';
   timelineSection.style.display = 'block';
   controlsBar.style.display     = 'flex';
@@ -819,5 +823,4 @@ btnOpenFolder.addEventListener('click', async () => {
 
 window.addEventListener('load', () => {
   resizeCanvas();
-  scanFolder();   // auto-scan the input-video folder on startup
 });

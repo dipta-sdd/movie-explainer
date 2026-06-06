@@ -94,7 +94,13 @@ def upload_video():
                 os.remove(fpath)
                 
         # Save new file
-        filename = secure_filename(file.filename)
+        orig_name = file.filename
+        base, ext = os.path.splitext(orig_name)
+        safe_base = secure_filename(base)
+        if not safe_base:
+            safe_base = "video_" + str(uuid.uuid4())[:8]
+        filename = f"{safe_base}{ext}"
+        
         save_path = os.path.join(INPUT_DIR, filename)
         file.save(save_path)
         
