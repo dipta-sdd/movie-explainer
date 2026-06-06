@@ -23,6 +23,9 @@
     </div>
     <div class="header-actions">
       <div id="video-name-badge" class="video-name-badge" style="display:none"></div>
+      <button id="btn-settings" class="btn btn-ghost btn-icon" title="Settings" style="margin-right: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
       <button id="btn-upload-header" class="btn btn-primary" title="Upload a new video file">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload Video
@@ -228,6 +231,46 @@
       <div class="modal-footer" id="modal-footer">
         <button id="btn-modal-cancel" class="btn btn-ghost">Cancel</button>
         <button id="btn-modal-export" class="btn btn-export">Start Export</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ═════════════════════════ SETTINGS MODAL ══════════════════════════════ -->
+  <dialog id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Settings</h3>
+      </div>
+      <div class="modal-body">
+        <div class="export-form" style="margin-bottom: 20px;">
+          <label for="setting-duration">Auto-Clip Duration (seconds)</label>
+          <input type="number" id="setting-duration" class="input-field" value="4.0" step="0.1" min="0.1" />
+          <div class="upload-hint" style="margin-top: 6px;">How long the automatic clip should be (e.g., 4.0 or 2.5).</div>
+        </div>
+        
+        <div class="export-form">
+          <label>Auto-Mark Mode</label>
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-weight: normal; font-size: 14px;">
+              <input type="radio" name="auto-mark-mode" value="immediate" checked style="margin-top: 3px;">
+              <div>
+                <strong style="color: #fff;">Immediate</strong><br>
+                <span class="upload-hint">Instantly creates a clip of the specified duration when "Mark Start" is clicked.</span>
+              </div>
+            </label>
+            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-weight: normal; font-size: 14px;">
+              <input type="radio" name="auto-mark-mode" value="playback" style="margin-top: 3px;">
+              <div>
+                <strong style="color: #fff;">On Playback</strong><br>
+                <span class="upload-hint">Sets the start point and allows the video to play. The clip automatically ends when playback reaches the set duration.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-settings-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-settings-save" class="btn btn-primary">Save Settings</button>
       </div>
     </div>
   </dialog>

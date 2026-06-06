@@ -21,6 +21,8 @@ const state = {
   editingClipIndex: null,  // index of clip being edited, or null
   insertIndex:      null,  // where to insert the next clip, null = end
   draggingTimeline: false,
+  stopAtTime:       null,  // time to auto-pause playback
+  autoMarkEndTime:  null,  // time to auto-save clip in playback mode
 };
 
 // ── DOM ──────────────────────────────────────────────────────────
@@ -92,8 +94,62 @@ const btnEditDone      = $('btn-edit-done');
 const lastVideoContainer = $('last-video-container');
 const btnLoadLast        = $('btn-load-last');
 const lastVideoName      = $('last-video-name');
+const btnSettings        = $('btn-settings');
+const settingsModal      = $('settings-modal');
+const btnSettingsCancel  = $('btn-settings-cancel');
+const btnSettingsSave    = $('btn-settings-save');
+const settingDuration    = $('setting-duration');
 
 const STORAGE_KEY = 'youtube_script_clips';
+const SETTINGS_KEY = 'youtube_script_settings';
+
+const userSettings = {
+  autoClipDuration: 4.0,
+  autoMarkMode: 'immediate' // 'immediate' or 'playback'
+};
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if (s) {
+      if (s.autoClipDuration !== undefined) userSettings.autoClipDuration = s.autoClipDuration;
+      if (s.autoMarkMode) userSettings.autoMarkMode = s.autoMarkMode;
+    }
+  } catch (e) {}
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+}
+
+loadSettings();
+
+// ── Settings UI Logic ──
+btnSettings.addEventListener('click', () => {
+  settingDuration.value = userSettings.autoClipDuration;
+  document.querySelectorAll('input[name="auto-mark-mode"]').forEach(r => {
+    r.checked = (r.value === userSettings.autoMarkMode);
+  });
+  settingsModal.showModal();
+});
+
+btnSettingsCancel.addEventListener('click', () => {
+  settingsModal.close();
+});
+
+btnSettingsSave.addEventListener('click', () => {
+  const dur = parseFloat(settingDuration.value);
+  if (!isNaN(dur) && dur > 0) {
+    userSettings.autoClipDuration = dur;
+  }
+  const selectedMode = document.querySelector('input[name="auto-mark-mode"]:checked');
+  if (selectedMode) {
+    userSettings.autoMarkMode = selectedMode.value;
+  }
+  saveSettings();
+  settingsModal.close();
+  showToast('Settings saved', 'success', 2000);
+});
 
 function saveState() {
   if (!state.videoName) return;
@@ -380,7 +436,26 @@ volumeSlider.addEventListener('input', () => {
 function updateLoop() {
   updateTimeDisplay();
   drawTimeline();
-  if (!video.paused && !video.ended) requestAnimationFrame(updateLoop);
+  
+  if (!video.paused) {
+    const t = video.currentTime;
+    
+    // Auto-pause when reached the end of a clip being replayed
+    if (state.stopAtTime !== null && t >= state.stopAtTime) {
+      video.pause();
+      video.currentTime = state.stopAtTime;
+      state.stopAtTime = null;
+    }
+    
+    // Auto-mark when reached the duration in playback mode
+    if (state.autoMarkEndTime !== null && t >= state.autoMarkEndTime) {
+      video.pause();
+      video.currentTime = state.autoMarkEndTime;
+      markEnd(); // This will save the clip and clear autoMarkEndTime
+    }
+    
+    if (!video.ended) requestAnimationFrame(updateLoop);
+  }
 }
 
 video.addEventListener('timeupdate', () => {
@@ -523,28 +598,41 @@ function markStart() {
     return;
   }
 
-  // ── NORMAL MODE: Auto-mark 4 seconds ──
-  video.pause();
+  // ── NORMAL MODE ──
   const start = video.currentTime;
-  const dur = state.duration || video.duration || start + 4;
-  const end = Math.min(start + 4, dur);
+  const durLimit = state.duration || video.duration || start + userSettings.autoClipDuration;
   
-  if (start >= end) { showToast('Cannot create clip here.', 'error'); return; }
+  if (userSettings.autoMarkMode === 'immediate') {
+    video.pause();
+    const end = Math.min(start + userSettings.autoClipDuration, durLimit);
+    if (start >= end) { showToast('Cannot create clip here.', 'error'); return; }
 
-  const color = CLIP_COLORS[state.clips.length % CLIP_COLORS.length];
-  const newClip = { start, end, color };
-  
-  const idx = state.insertIndex !== null ? state.insertIndex : state.clips.length;
-  state.clips.splice(idx, 0, newClip);
-  
-  // Advance the insertion pointer so the next clip goes after this one
-  state.insertIndex = idx + 1;
-  if (state.insertIndex > state.clips.length) state.insertIndex = null;
+    const color = CLIP_COLORS[state.clips.length % CLIP_COLORS.length];
+    const newClip = { start, end, color };
+    
+    const idx = state.insertIndex !== null ? state.insertIndex : state.clips.length;
+    state.clips.splice(idx, 0, newClip);
+    
+    state.insertIndex = idx + 1;
+    if (state.insertIndex > state.clips.length) state.insertIndex = null;
 
-  renderClipsList();
-  drawTimeline();
-  saveState();
-  showToast(`Clip auto-saved at position #${idx+1} (4s)`, 'success');
+    renderClipsList();
+    drawTimeline();
+    saveState();
+    showToast(`Clip auto-saved at position #${idx+1}`, 'success');
+  } else {
+    // Playback mode
+    state.pendingStart = start;
+    state.autoMarkEndTime = start + userSettings.autoClipDuration;
+    pendingTime.textContent = formatTime(state.pendingStart);
+    if (pendingElapsed) pendingElapsed.textContent = '00:00.000';
+    pendingInfo.style.display = 'flex';
+    btnMarkStart.classList.add('pulsing');
+    btnMarkEnd.disabled = false;
+    showToast(`Start: ${formatTime(start)} (Playing to auto-end...)`, 'info', 2000);
+    drawTimeline();
+    video.play();
+  }
 }
 
 function markEnd() {
@@ -581,11 +669,13 @@ function markEnd() {
   if (state.insertIndex > state.clips.length) state.insertIndex = null;
 
   state.pendingStart = null;
+  state.autoMarkEndTime = null;
   pendingInfo.style.display = 'none';
   btnMarkStart.classList.remove('pulsing');
   btnMarkEnd.disabled = true;
   renderClipsList();
   drawTimeline();
+  saveState();
   showToast(`Clip saved at position #${idx+1} — ${formatShortDuration(dur)}`, 'success');
 }
 
@@ -669,8 +759,10 @@ function renderClipsList() {
   clipsList.querySelectorAll('.btn-goto').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      video.currentTime = state.clips[+btn.dataset.index].start;
-      video.pause();
+      const clip = state.clips[+btn.dataset.index];
+      video.currentTime = clip.start;
+      state.stopAtTime = clip.end;
+      video.play();
     });
   });
 
@@ -703,7 +795,8 @@ function renderClipsList() {
     item.addEventListener('click', () => {
       const idx = +item.dataset.index;
       video.currentTime = state.clips[idx].start;
-      video.pause();
+      state.stopAtTime = state.clips[idx].end;
+      video.play();
     });
   });
 
