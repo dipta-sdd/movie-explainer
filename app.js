@@ -91,12 +91,12 @@ const progressFill     = $('progress-bar-fill');
 const progressMsg      = $('progress-message');
 const exportResult     = $('export-result');
 const resultPath       = $('result-path');
+const btnDownloadVideo = $('btn-download-video');
 const exportError      = $('export-error');
 const errorMessage     = $('error-message');
 const modalFooter      = $('modal-footer');
 const btnModalCancel   = $('btn-modal-cancel');
 const btnModalExport   = $('btn-modal-export');
-const btnOpenFolder    = $('btn-open-folder');
 const editModeBanner   = $('edit-mode-banner');
 const editModeLabel    = $('edit-mode-label');
 const btnEditDone      = $('btn-edit-done');
@@ -1050,27 +1050,75 @@ async function startExport() {
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    pollJob(data.job_id);
+    streamJob(data.job_id);
   } catch (err) {
     showExportError(err.message);
   }
 }
 
-async function pollJob(jobId) {
+function streamJob(jobId) {
+  // Use Server-Sent Events for real-time progress
+  const evtSource = new EventSource(`${API}/status/${jobId}/stream`);
+
+  evtSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.error && !data.status) {
+      evtSource.close();
+      showExportError(data.error);
+      return;
+    }
+
+    if (data.status === 'running' || data.status === 'queued') {
+      progressFill.style.width = `${data.progress || 5}%`;
+      progressMsg.textContent  = `Processing... ${data.progress || 0}%`;
+    } else if (data.status === 'done') {
+      evtSource.close();
+      progressFill.style.width = '100%';
+      setTimeout(() => {
+        exportProgress.style.display = 'none';
+        exportResult.style.display   = 'block';
+        resultPath.textContent       = data.output_path;
+        
+        const filename = data.output_path.split(/[/\\]/).pop();
+        btnDownloadVideo.href = `/output/${encodeURIComponent(filename)}`;
+        btnDownloadVideo.download = filename;
+
+        modalFooter.style.display    = 'none';
+      }, 400);
+    } else if (data.status === 'error') {
+      evtSource.close();
+      showExportError(data.error || 'Unknown error');
+    }
+  };
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    // Fallback to polling with longer interval
+    pollJobFallback(jobId);
+  };
+}
+
+async function pollJobFallback(jobId) {
   try {
     const res  = await fetch(`${API}/status/${jobId}`);
     const data = await res.json();
 
     if (data.status === 'running' || data.status === 'queued') {
       progressFill.style.width = `${data.progress || 5}%`;
-      progressMsg.textContent  = data.message || 'Processing…';
-      setTimeout(() => pollJob(jobId), 800);
+      progressMsg.textContent  = `Processing... ${data.progress || 0}%`;
+      setTimeout(() => pollJobFallback(jobId), 3000);
     } else if (data.status === 'done') {
       progressFill.style.width = '100%';
       setTimeout(() => {
         exportProgress.style.display = 'none';
         exportResult.style.display   = 'block';
         resultPath.textContent       = data.output_path;
+        
+        const filename = data.output_path.split(/[/\\]/).pop();
+        btnDownloadVideo.href = `/video/${encodeURIComponent(filename)}`;
+        btnDownloadVideo.download = filename;
+
         modalFooter.style.display    = 'none';
       }, 400);
     } else {
@@ -1087,13 +1135,6 @@ function showExportError(msg) {
   errorMessage.textContent     = msg;
   btnModalExport.disabled      = false;
 }
-
-btnOpenFolder.addEventListener('click', async () => {
-  await fetch(`${API}/open-folder`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: resultPath.textContent })
-  });
-});
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT — auto-scan on load

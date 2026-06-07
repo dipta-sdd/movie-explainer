@@ -905,7 +905,7 @@ body {
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   position: relative;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .clip-item::before {
@@ -1115,15 +1115,16 @@ body {
 }
 
 .progress-bar-track {
-  background: var(--bg-base);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 99px;
-  height: 8px;
+  height: 16px;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  background: linear-gradient(90deg, var(--accent), #ff512f);
   border-radius: 99px;
   width: 0%;
   transition: width 0.4s var(--ease-out);

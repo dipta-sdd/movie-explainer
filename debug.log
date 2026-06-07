@@ -1,0 +1,177 @@
+2026-06-07 22:43:21 [INFO] ==============================================================
+2026-06-07 22:43:21 [INFO]   🎬  Video Clip Extractor & Merger
+2026-06-07 22:43:21 [INFO] ==============================================================
+2026-06-07 22:43:21 [INFO]   📁  Put your video in:  /home/sdd/Documents/youtube script/app/input-video
+2026-06-07 22:43:21 [INFO]   📋  Debug log:          /home/sdd/Documents/youtube script/app/debug.log
+2026-06-07 22:43:21 [INFO]   🌐  Open:  http://localhost:5000
+2026-06-07 22:43:21 [INFO]   🛑  Stop:  Ctrl+C
+2026-06-07 22:43:21 [INFO] ==============================================================
+2026-06-07 22:44:22 [INFO] Uploaded video: /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4
+2026-06-07 22:44:22 [DEBUG] ffprobe command: ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', '/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4']
+2026-06-07 22:45:13 [INFO] Export request: video=/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4, clips=5, output=GX011932_clips.mp4, audio=no
+2026-06-07 22:45:13 [INFO] [Job 5c5777de] Export started
+2026-06-07 22:45:13 [DEBUG]   video_path : /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4
+2026-06-07 22:45:13 [DEBUG]   output_path: /home/sdd/Documents/youtube script/app/input-video/GX011932_clips.mp4
+2026-06-07 22:45:13 [DEBUG]   audio_path : None
+2026-06-07 22:45:13 [DEBUG]   clips      : [
+  {
+    "start": 0,
+    "end": 1.3
+  },
+  {
+    "start": 2.26323,
+    "end": 3.56323
+  },
+  {
+    "start": 4.946788,
+    "end": 6.246788
+  },
+  {
+    "start": 7.862539,
+    "end": 9.162539
+  },
+  {
+    "start": 10.289152,
+    "end": 11.589152
+  }
+]
+2026-06-07 22:45:13 [DEBUG]   os.name    : posix
+2026-06-07 22:45:13 [DEBUG]   video exists: True
+2026-06-07 22:45:13 [DEBUG]   ffmpeg version: ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+2026-06-07 22:45:13 [DEBUG]   temp_dir   : /tmp/vidclip_at71rztx
+2026-06-07 22:45:13 [INFO] [Job 5c5777de] Extracting clip 1/5 (0.000s → 1.300s)
+2026-06-07 22:45:13 [DEBUG]   cmd: ffmpeg -y -ss 0 -to 1.3 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_at71rztx/clip_0000.mp4
+2026-06-07 22:45:29 [DEBUG]   clip 1 created: /tmp/vidclip_at71rztx/clip_0000.mp4 (2458720 bytes)
+2026-06-07 22:45:29 [INFO] [Job 5c5777de] Extracting clip 2/5 (2.263s → 3.563s)
+2026-06-07 22:45:29 [DEBUG]   cmd: ffmpeg -y -ss 2.26323 -to 3.56323 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_at71rztx/clip_0001.mp4
+2026-06-07 22:45:45 [DEBUG]   clip 2 created: /tmp/vidclip_at71rztx/clip_0001.mp4 (2532676 bytes)
+2026-06-07 22:45:45 [INFO] [Job 5c5777de] Extracting clip 3/5 (4.947s → 6.247s)
+2026-06-07 22:45:45 [DEBUG]   cmd: ffmpeg -y -ss 4.946788 -to 6.246788 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_at71rztx/clip_0002.mp4
+2026-06-07 22:46:02 [DEBUG]   clip 3 created: /tmp/vidclip_at71rztx/clip_0002.mp4 (2609395 bytes)
+2026-06-07 22:46:02 [INFO] [Job 5c5777de] Extracting clip 4/5 (7.863s → 9.163s)
+2026-06-07 22:46:02 [DEBUG]   cmd: ffmpeg -y -ss 7.862539 -to 9.162539 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_at71rztx/clip_0003.mp4
+2026-06-07 22:46:20 [DEBUG]   clip 4 created: /tmp/vidclip_at71rztx/clip_0003.mp4 (3443306 bytes)
+2026-06-07 22:46:20 [INFO] [Job 5c5777de] Extracting clip 5/5 (10.289s → 11.589s)
+2026-06-07 22:46:20 [DEBUG]   cmd: ffmpeg -y -ss 10.289152 -to 11.589152 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_at71rztx/clip_0004.mp4
+2026-06-07 22:46:39 [DEBUG]   clip 5 created: /tmp/vidclip_at71rztx/clip_0004.mp4 (4089991 bytes)
+2026-06-07 22:46:39 [DEBUG]   concat list written to: /tmp/vidclip_at71rztx/concat.txt
+2026-06-07 22:46:39 [DEBUG]   concat contents:
+file '/tmp/vidclip_at71rztx/clip_0000.mp4'
+file '/tmp/vidclip_at71rztx/clip_0001.mp4'
+file '/tmp/vidclip_at71rztx/clip_0002.mp4'
+file '/tmp/vidclip_at71rztx/clip_0003.mp4'
+file '/tmp/vidclip_at71rztx/clip_0004.mp4'
+
+2026-06-07 22:46:39 [INFO] [Job 5c5777de] Merging 5 clips...
+2026-06-07 22:46:39 [DEBUG]   cmd: ffmpeg -y -f concat -safe 0 -i /tmp/vidclip_at71rztx/concat.txt -c copy /home/sdd/Documents/youtube script/app/input-video/GX011932_clips.mp4
+2026-06-07 22:46:39 [INFO] [Job 5c5777de] Export complete! → /home/sdd/Documents/youtube script/app/input-video/GX011932_clips.mp4 (15128952 bytes)
+2026-06-07 22:51:48 [INFO] ==============================================================
+2026-06-07 22:51:48 [INFO]   🎬  Video Clip Extractor & Merger
+2026-06-07 22:51:48 [INFO] ==============================================================
+2026-06-07 22:51:48 [INFO]   📁  Put your video in:  /home/sdd/Documents/youtube script/app/input-video
+2026-06-07 22:51:48 [INFO]   📋  Debug log:          /home/sdd/Documents/youtube script/app/debug.log
+2026-06-07 22:51:48 [INFO]   🌐  Open:  http://localhost:5000
+2026-06-07 22:51:48 [INFO]   🛑  Stop:  Ctrl+C
+2026-06-07 22:51:48 [INFO] ==============================================================
+2026-06-07 22:52:43 [DEBUG] ffprobe command: ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', '/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4']
+2026-06-07 22:52:57 [INFO] Export request: video=/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4, clips=5, output=GX011932_clips.mp4, audio=no
+2026-06-07 22:52:57 [INFO] [Job 34079560] Export started
+2026-06-07 22:52:57 [DEBUG]   video_path : /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4
+2026-06-07 22:52:57 [DEBUG]   output_path: /home/sdd/Documents/youtube script/app/input-video/GX011932_clips_1.mp4
+2026-06-07 22:52:57 [DEBUG]   audio_path : None
+2026-06-07 22:52:57 [DEBUG]   clips      : [
+  {
+    "start": 0,
+    "end": 1.3
+  },
+  {
+    "start": 2.26323,
+    "end": 3.56323
+  },
+  {
+    "start": 4.946788,
+    "end": 6.246788
+  },
+  {
+    "start": 7.862539,
+    "end": 9.162539
+  },
+  {
+    "start": 10.289152,
+    "end": 11.589152
+  }
+]
+2026-06-07 22:52:57 [DEBUG]   os.name    : posix
+2026-06-07 22:52:57 [DEBUG]   video exists: True
+2026-06-07 22:52:57 [DEBUG]   ffmpeg version: ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+2026-06-07 22:52:57 [DEBUG]   temp_dir   : /tmp/vidclip_dxah3ohf
+2026-06-07 22:52:57 [INFO] [Job 34079560] Extracting clip 1/5 (0.000s → 1.300s)
+2026-06-07 22:52:57 [DEBUG]   cmd: ffmpeg -y -ss 0 -to 1.3 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_dxah3ohf/clip_0000.mp4
+2026-06-07 22:53:11 [DEBUG]   clip 1 created: /tmp/vidclip_dxah3ohf/clip_0000.mp4 (2458720 bytes)
+2026-06-07 22:53:11 [INFO] [Job 34079560] Extracting clip 2/5 (2.263s → 3.563s)
+2026-06-07 22:53:11 [DEBUG]   cmd: ffmpeg -y -ss 2.26323 -to 3.56323 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_dxah3ohf/clip_0001.mp4
+2026-06-07 22:53:27 [DEBUG]   clip 2 created: /tmp/vidclip_dxah3ohf/clip_0001.mp4 (2532676 bytes)
+2026-06-07 22:53:27 [INFO] [Job 34079560] Extracting clip 3/5 (4.947s → 6.247s)
+2026-06-07 22:53:27 [DEBUG]   cmd: ffmpeg -y -ss 4.946788 -to 6.246788 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_dxah3ohf/clip_0002.mp4
+2026-06-07 22:53:47 [DEBUG]   clip 3 created: /tmp/vidclip_dxah3ohf/clip_0002.mp4 (2609395 bytes)
+2026-06-07 22:53:47 [INFO] [Job 34079560] Extracting clip 4/5 (7.863s → 9.163s)
+2026-06-07 22:53:47 [DEBUG]   cmd: ffmpeg -y -ss 7.862539 -to 9.162539 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_dxah3ohf/clip_0003.mp4
+2026-06-07 22:54:07 [DEBUG]   clip 4 created: /tmp/vidclip_dxah3ohf/clip_0003.mp4 (3443306 bytes)
+2026-06-07 22:54:07 [INFO] [Job 34079560] Extracting clip 5/5 (10.289s → 11.589s)
+2026-06-07 22:54:07 [DEBUG]   cmd: ffmpeg -y -ss 10.289152 -to 11.589152 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_dxah3ohf/clip_0004.mp4
+2026-06-07 22:54:29 [DEBUG]   clip 5 created: /tmp/vidclip_dxah3ohf/clip_0004.mp4 (4089991 bytes)
+2026-06-07 22:54:29 [DEBUG]   concat list written to: /tmp/vidclip_dxah3ohf/concat.txt
+2026-06-07 22:54:29 [DEBUG]   concat contents:
+file '/tmp/vidclip_dxah3ohf/clip_0000.mp4'
+file '/tmp/vidclip_dxah3ohf/clip_0001.mp4'
+file '/tmp/vidclip_dxah3ohf/clip_0002.mp4'
+file '/tmp/vidclip_dxah3ohf/clip_0003.mp4'
+file '/tmp/vidclip_dxah3ohf/clip_0004.mp4'
+
+2026-06-07 22:54:29 [INFO] [Job 34079560] Merging 5 clips...
+2026-06-07 22:54:29 [DEBUG]   cmd: ffmpeg -y -f concat -safe 0 -i /tmp/vidclip_dxah3ohf/concat.txt -c copy /home/sdd/Documents/youtube script/app/input-video/GX011932_clips_1.mp4
+2026-06-07 22:54:30 [INFO] [Job 34079560] Export complete! → /home/sdd/Documents/youtube script/app/input-video/GX011932_clips_1.mp4 (15128952 bytes)
+2026-06-07 22:57:05 [DEBUG] ffprobe command: ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', '/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4']
+2026-06-07 22:58:29 [INFO] ==============================================================
+2026-06-07 22:58:29 [INFO]   🎬  Video Clip Extractor & Merger
+2026-06-07 22:58:29 [INFO] ==============================================================
+2026-06-07 22:58:29 [INFO]   📁  Put your video in:  /home/sdd/Documents/youtube script/app/input-video
+2026-06-07 22:58:29 [INFO]   📁  Exports saved to:   /home/sdd/Documents/youtube script/app/output-video
+2026-06-07 22:58:29 [INFO]   📋  Debug log:          /home/sdd/Documents/youtube script/app/debug.log
+2026-06-07 22:58:29 [INFO]   🌐  Open:  http://localhost:5000
+2026-06-07 22:58:29 [INFO]   🛑  Stop:  Ctrl+C
+2026-06-07 22:58:29 [INFO] ==============================================================
+2026-06-07 22:59:19 [DEBUG] ffprobe command: ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', '/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4']
+2026-06-07 22:59:39 [INFO] Export request: video=/home/sdd/Documents/youtube script/app/input-video/GX011932.MP4, clips=2, output=GX011932_clips.mp4, audio=no
+2026-06-07 22:59:39 [INFO] [Job 5497e343] Export started
+2026-06-07 22:59:39 [DEBUG]   video_path : /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4
+2026-06-07 22:59:39 [DEBUG]   output_path: /home/sdd/Documents/youtube script/app/output-video/GX011932_clips.mp4
+2026-06-07 22:59:39 [DEBUG]   audio_path : None
+2026-06-07 22:59:39 [DEBUG]   clips      : [
+  {
+    "start": 0,
+    "end": 4
+  },
+  {
+    "start": 5.670131,
+    "end": 9.670131
+  }
+]
+2026-06-07 22:59:39 [DEBUG]   os.name    : posix
+2026-06-07 22:59:39 [DEBUG]   video exists: True
+2026-06-07 22:59:39 [DEBUG]   ffmpeg version: ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+2026-06-07 22:59:39 [DEBUG]   temp_dir   : /tmp/vidclip_shoy_cxi
+2026-06-07 22:59:39 [INFO] [Job 5497e343] Extracting clip 1/2 (0.000s → 4.000s)
+2026-06-07 22:59:39 [DEBUG]   cmd: ffmpeg -y -ss 0 -to 4 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_shoy_cxi/clip_0000.mp4
+2026-06-07 23:00:20 [DEBUG]   clip 1 created: /tmp/vidclip_shoy_cxi/clip_0000.mp4 (7125461 bytes)
+2026-06-07 23:00:20 [INFO] [Job 5497e343] Extracting clip 2/2 (5.670s → 9.670s)
+2026-06-07 23:00:20 [DEBUG]   cmd: ffmpeg -y -ss 5.670131 -to 9.670131 -i /home/sdd/Documents/youtube script/app/input-video/GX011932.MP4 -c:v libx264 -an -avoid_negative_ts make_zero /tmp/vidclip_shoy_cxi/clip_0001.mp4
+2026-06-07 23:01:07 [DEBUG]   clip 2 created: /tmp/vidclip_shoy_cxi/clip_0001.mp4 (9151706 bytes)
+2026-06-07 23:01:07 [DEBUG]   concat list written to: /tmp/vidclip_shoy_cxi/concat.txt
+2026-06-07 23:01:07 [DEBUG]   concat contents:
+file '/tmp/vidclip_shoy_cxi/clip_0000.mp4'
+file '/tmp/vidclip_shoy_cxi/clip_0001.mp4'
+
+2026-06-07 23:01:07 [INFO] [Job 5497e343] Merging 2 clips...
+2026-06-07 23:01:07 [DEBUG]   cmd: ffmpeg -y -f concat -safe 0 -i /tmp/vidclip_shoy_cxi/concat.txt -c copy /home/sdd/Documents/youtube script/app/output-video/GX011932_clips.mp4
+2026-06-07 23:01:07 [INFO] [Job 5497e343] Export complete! → /home/sdd/Documents/youtube script/app/output-video/GX011932_clips.mp4 (16275890 bytes)
